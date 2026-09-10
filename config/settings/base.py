@@ -78,8 +78,6 @@ ASGI_APPLICATION = "config.asgi.application"
 DATABASES = {
     "default": env.db("DATABASE_URL"),
 }
-if DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":
-    DATABASES["default"]["OPTIONS"] = {"sslmode": "require"}
 
 AUTH_USER_MODEL = "accounts.User"
 
