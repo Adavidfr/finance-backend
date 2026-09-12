@@ -1,3 +1,10 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import CategoryRule
+
+
+@admin.register(CategoryRule)
+class CategoryRuleAdmin(admin.ModelAdmin):
+    list_display = ("keyword", "category", "user")
+    list_filter = ("category",)
+    search_fields = ("keyword",)
