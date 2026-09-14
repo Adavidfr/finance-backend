@@ -9,6 +9,8 @@ urlpatterns = [
     path("api/", include("finances.urls")),
     path("api/", include("imports_.urls")),
     path("api/", include("budgets.urls")),
+    path("api/", include("goals.urls")),
+    path("api/", include("insights.urls")),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

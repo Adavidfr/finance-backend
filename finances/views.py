@@ -1,8 +1,12 @@
 from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import Account, Category, Transaction
 from .serializers import AccountSerializer, CategorySerializer, TransactionSerializer
+from .summary import get_dashboard_summary
 
 
 class AccountViewSet(viewsets.ModelViewSet):
@@ -10,7 +14,6 @@ class AccountViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Cada usuario solo ve SUS propias cuentas
         return Account.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
@@ -22,7 +25,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Ve las categorías del sistema (user=None) + las suyas propias
         from django.db.models import Q
         return Category.objects.filter(
             Q(user=self.request.user) | Q(user__isnull=True)
@@ -37,5 +39,44 @@ class TransactionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Solo transacciones de cuentas que pertenecen al usuario
         return Transaction.objects.filter(account__user=self.request.user)
+
+    def perform_update(self, serializer):
+        instance = serializer.save(
+            categorization_method=Transaction.CategorizationMethod.MANUAL,
+            categorization_confidence=1.0,
+        )
+        from categorization.services import learn_rule_from_correction
+        learn_rule_from_correction(instance)
+
+    @action(detail=True, methods=["post"])
+    def confirm(self, request, pk=None):
+        """
+        El usuario confirma que la categoría actual es correcta,
+        sin cambiarla. Esto dispara el aprendizaje de una regla,
+        igual que una corrección manual — así hasta los aciertos
+        del LLM terminan "graduándose" a reglas con el tiempo.
+        """
+        transaction = self.get_object()
+
+        if not transaction.category:
+            return Response(
+                {"detail": "Esta transacción no tiene categoría asignada todavía, no hay nada que confirmar."},
+                status=400,
+            )
+
+        transaction.categorization_method = Transaction.CategorizationMethod.MANUAL
+        transaction.categorization_confidence = 1.0
+        transaction.save(update_fields=["categorization_method", "categorization_confidence"])
+
+        from categorization.services import learn_rule_from_correction
+        learn_rule_from_correction(transaction)
+
+        return Response(TransactionSerializer(transaction).data)
+
+
+class DashboardSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(get_dashboard_summary(request.user))
