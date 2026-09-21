@@ -4,7 +4,7 @@ from django.utils import timezone
 from categorization.tasks import categorize_transaction_task
 
 from .models import ImportJob
-from .services import create_transactions_from_rows, parse_csv
+from .services import create_transactions_from_rows, parse_file
 
 
 @shared_task
@@ -18,7 +18,7 @@ def process_import_job(import_job_id):
     job.save(update_fields=["status"])
 
     try:
-        rows = parse_csv(job.file.path)
+        rows = parse_file(job.file.path)
         job.total_rows = len(rows)
         job.save(update_fields=["total_rows"])
 

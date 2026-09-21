@@ -3,8 +3,6 @@ from django.db import transaction as db_transaction
 
 from finances.models import Transaction
 
-# Nombres de columna que aceptamos, mapeados a los campos del modelo.
-# Así soportamos CSVs con encabezados en español o inglés sin romper nada.
 COLUMN_ALIASES = {
     "date": ["date", "fecha"],
     "description": ["description", "descripcion", "descripción", "detalle"],
@@ -13,7 +11,6 @@ COLUMN_ALIASES = {
 
 
 def _find_column(df_columns, aliases):
-    """Busca cuál de los nombres alternativos existe realmente en el CSV."""
     lower_columns = {col.lower().strip(): col for col in df_columns}
     for alias in aliases:
         if alias in lower_columns:
@@ -21,13 +18,18 @@ def _find_column(df_columns, aliases):
     return None
 
 
-def parse_csv(file_path):
+def parse_file(file_path):
     """
-    Lee el CSV y devuelve una lista de diccionarios listos para crear
-    Transactions. Lanza ValueError con un mensaje claro si falta una
-    columna requerida.
+    Lee un CSV o un Excel (.xlsx/.xls) y devuelve una lista de diccionarios
+    listos para crear Transactions. Lanza ValueError con un mensaje claro
+    si falta una columna requerida o el formato no es soportado.
     """
-    df = pd.read_csv(file_path)
+    if str(file_path).lower().endswith((".xlsx", ".xls")):
+        df = pd.read_excel(file_path)
+    elif str(file_path).lower().endswith(".csv"):
+        df = pd.read_csv(file_path)
+    else:
+        raise ValueError("Formato de archivo no soportado. Usa .csv o .xlsx")
 
     date_col = _find_column(df.columns, COLUMN_ALIASES["date"])
     description_col = _find_column(df.columns, COLUMN_ALIASES["description"])
@@ -39,7 +41,7 @@ def parse_csv(file_path):
     ]
     if missing:
         raise ValueError(
-            f"El CSV no tiene las columnas requeridas: {', '.join(missing)}. "
+            f"El archivo no tiene las columnas requeridas: {', '.join(missing)}. "
             f"Columnas encontradas: {list(df.columns)}"
         )
 
@@ -57,10 +59,6 @@ def parse_csv(file_path):
 
 
 def create_transactions_from_rows(rows, account):
-    """
-    Crea las Transaction en bulk. Devuelve la lista de IDs creados
-    (para poder categorizarlas después, una por una, vía Celery).
-    """
     with db_transaction.atomic():
         transactions = [
             Transaction(
