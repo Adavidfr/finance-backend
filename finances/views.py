@@ -42,12 +42,28 @@ class TransactionViewSet(viewsets.ModelViewSet):
         return Transaction.objects.filter(account__user=self.request.user)
 
     def perform_update(self, serializer):
-        instance = serializer.save(
-            categorization_method=Transaction.CategorizationMethod.MANUAL,
-            categorization_confidence=1.0,
-        )
-        from categorization.services import learn_rule_from_correction
-        learn_rule_from_correction(instance)
+        # Distinguimos el origen del PATCH por los campos que llegaron:
+        # - solo "category" -> el usuario corrigió la categoría a mano (aprende regla)
+        # - description/amount/date -> editó los datos del movimiento, la
+        #   categoría anterior puede ya no aplicar, así que se re-categoriza
+        #   desde cero (reglas -> LLM), igual que una transacción nueva.
+        changed_fields = set(self.request.data.keys())
+
+        if changed_fields == {"category"}:
+            instance = serializer.save(
+                categorization_method=Transaction.CategorizationMethod.MANUAL,
+                categorization_confidence=1.0,
+            )
+            from categorization.services import learn_rule_from_correction
+            learn_rule_from_correction(instance)
+        else:
+            instance = serializer.save(
+                category=None,
+                categorization_method=Transaction.CategorizationMethod.PENDING,
+                categorization_confidence=None,
+            )
+            from categorization.tasks import categorize_transaction_task
+            categorize_transaction_task.delay(instance.id)
 
     @action(detail=True, methods=["post"])
     def confirm(self, request, pk=None):

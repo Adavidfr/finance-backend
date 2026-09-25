@@ -6,20 +6,26 @@ from .models import Insight
 def generate_spending_insights(user):
     """
     Calcula los cambios de gasto significativos del usuario, redacta
-    cada uno con el LLM, y los guarda como Insight. Devuelve la lista
-    de Insights creados.
+    cada uno con el LLM, y los guarda como Insight. Si ya existe un
+    insight para la misma categoría y mes, lo ACTUALIZA en vez de
+    crear uno duplicado. Devuelve la lista de Insights (nuevos o
+    actualizados).
     """
     changes = calculate_spending_changes(user)
-    created_insights = []
+    result_insights = []
 
     for change in changes:
         text = generate_insight_text(change)
-        insight = Insight.objects.create(
+        insight, _created = Insight.objects.update_or_create(
             user=user,
             insight_type=Insight.InsightType.SPENDING_CHANGE,
-            generated_text=text,
-            supporting_data=change,
+            supporting_data__category=change["category"],
+            supporting_data__month=change["month"],
+            defaults={
+                "generated_text": text,
+                "supporting_data": change,
+            },
         )
-        created_insights.append(insight)
+        result_insights.append(insight)
 
-    return created_insights
+    return result_insights

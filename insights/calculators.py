@@ -48,6 +48,7 @@ def calculate_spending_changes(user):
             changes.append(
                 {
                     "category": category,
+                    "month": this_start.strftime("%Y-%m"),
                     "current": float(current_amount),
                     "previous": float(previous_amount),
                     "pct_change": round(pct_change, 1),

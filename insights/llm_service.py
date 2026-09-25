@@ -20,15 +20,19 @@ def generate_insight_text(spending_change):
 
     direction = "aumentaron" if spending_change["pct_change"] > 0 else "disminuyeron"
 
-    prompt = f"""Redacta UNA sola frase corta y natural en español, para un dashboard financiero personal,
-que informe este dato exacto al usuario. No inventes ni cambies ningún número.
+    prompt = f"""Redacta una frase en español para un dashboard financiero, usando EXACTAMENTE
+esta plantilla, sin desviarte del formato ni agregar nada extra:
 
-Categoría: {spending_change['category']}
-Gasto este mes: ${spending_change['current']:.2f}
-Gasto mes anterior: ${spending_change['previous']:.2f}
-Cambio: {abs(spending_change['pct_change'])}% ({direction})
+"Tus gastos en {{categoria}} {{aumentaron/disminuyeron}} {{porcentaje}}% este mes (${{monto_anterior}} → ${{monto_actual}})."
 
-Responde ÚNICAMENTE con la frase, sin comillas, sin explicaciones adicionales."""
+Datos exactos a usar (no los cambies, no los redondees distinto):
+- categoria: {spending_change['category']}
+- dirección: {direction}
+- porcentaje: {abs(spending_change['pct_change'])}
+- monto_anterior: {spending_change['previous']:.2f}
+- monto_actual: {spending_change['current']:.2f}
+
+Responde ÚNICAMENTE con la frase ya completada, sin comillas, sin explicaciones, sin texto adicional antes o después."""
 
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
