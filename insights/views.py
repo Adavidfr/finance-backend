@@ -5,7 +5,7 @@ from rest_framework.response import Response
 
 from .models import Insight
 from .serializers import InsightSerializer
-from .services import generate_spending_insights
+from .services import generate_all_insights
 
 
 class InsightViewSet(viewsets.ReadOnlyModelViewSet):
@@ -17,7 +17,7 @@ class InsightViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=["post"])
     def generate(self, request):
-        """Dispara el cálculo + redacción de insights nuevos para el usuario."""
-        insights = generate_spending_insights(request.user)
+        """Dispara el cálculo + redacción de los 3 tipos de insight para el usuario."""
+        insights = generate_all_insights(request.user)
         serializer = InsightSerializer(insights, many=True)
         return Response(serializer.data)
