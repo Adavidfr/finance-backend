@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from datetime import date
 
 from .models import Account, Category, Transaction
 from .serializers import AccountSerializer, CategorySerializer, TransactionSerializer
@@ -95,4 +96,13 @@ class DashboardSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(get_dashboard_summary(request.user))
+        today = date.today()
+        try:
+            year = int(request.query_params.get("year", today.year))
+            month = int(request.query_params.get("month", today.month))
+            if not (1 <= month <= 12 and 2000 <= year <= 2100):
+                raise ValueError
+        except ValueError:
+            return Response({"detail": "Parámetros year/month inválidos."}, status=400)
+
+        return Response(get_dashboard_summary(request.user, year, month))
